@@ -230,6 +230,8 @@ async function speak() {
     };
 
     state.audio.onerror = () => {
+      releaseAudio();
+      resetPlaybackControls();
       setStatus("تعذر تشغيل الملف الصوتي", "bad");
       statusText.textContent = "كاين مشكل";
     };

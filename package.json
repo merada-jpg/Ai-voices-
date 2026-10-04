@@ -8,5 +8,8 @@
   },
   "dependencies": {
     "@google/genai": "^2.24.0"
+  },
+  "scripts": {
+    "test": "node --check app.js && node --check api/generate.js"
   }
 }

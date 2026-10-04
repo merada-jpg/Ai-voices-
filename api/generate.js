@@ -16,6 +16,12 @@ export default async function handler(req, res) {
     return;
   }
 
+  const contentType = String(req.headers?.["content-type"] || "").toLowerCase();
+  if (!contentType.startsWith("application/json")) {
+    res.status(415).json({ error: "صيغة الطلب غير مدعومة." });
+    return;
+  }
+
   if (!process.env.GEMINI_API_KEY) {
     res.status(503).json({ error: "خدمة الصوت ما راهيش مهيأة في السيرفر." });
     return;
@@ -92,10 +98,15 @@ export default async function handler(req, res) {
       return;
     }
 
-    const mimeType = inlineData.mimeType || "audio/wav";
+    const upstreamMimeType = String(inlineData.mimeType || "").toLowerCase().split(";")[0].trim();
+    const mimeType = new Set(["audio/wav", "audio/mpeg", "audio/ogg", "audio/webm"]).has(upstreamMimeType)
+      ? upstreamMimeType
+      : "audio/wav";
+
     res.setHeader("Content-Type", mimeType);
     res.setHeader("Content-Length", audio.length);
     res.setHeader("Cache-Control", "no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
     res.status(200).send(audio);
   } catch (error) {
     console.error("Gemini TTS error:", error?.name || "Error", error?.message || "Unknown error");
