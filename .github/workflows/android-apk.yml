@@ -3,6 +3,8 @@ name: Build Android APK
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -26,6 +28,9 @@ jobs:
         with:
           gradle-version: "8.13"
 
+      - name: Verify Gradle
+        run: gradle --version
+
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon
 
@@ -34,8 +39,10 @@ jobs:
         with:
           name: ai-voices-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
 
       - name: Publish GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v0.1.${{ github.run_number }}
