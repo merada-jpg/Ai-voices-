@@ -150,6 +150,11 @@ async function speak() {
     return;
   }
 
+  if (text.length > MAX_TEXT) {
+    setStatus(`النص طويل بزاف. الحد الأقصى هو ${MAX_TEXT} حرف.`, "bad");
+    return;
+  }
+
   if (state.busy) return;
 
   setBusy(true);
@@ -297,8 +302,10 @@ historyList.addEventListener("click", (event) => {
   const record = readHistory()[Number(item.dataset.index)];
   if (!record) return;
 
-  textInput.value = record.text;
-  voiceSelect.value = record.voice;
+  textInput.value = record.text.slice(0, MAX_TEXT);
+  if ([...voiceSelect.options].some((option) => option.value === record.voice)) {
+    voiceSelect.value = record.voice;
+  }
   syncVoiceCards();
   count();
   $("#studio").scrollIntoView({ behavior: "smooth", block: "start" });
