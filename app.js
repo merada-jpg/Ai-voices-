@@ -26,7 +26,8 @@ let state = {
   objectUrl: null,
   busy: false,
   generatedVoice: null,
-  generatedText: ""
+  generatedText: "",
+  nativePlaying: false
 };
 
 function count() {
@@ -42,7 +43,7 @@ function setBusy(value) {
   state.busy = value;
   speakBtn.disabled = value;
   pauseBtn.disabled = value || !state.audio;
-  stopBtn.disabled = value || !state.audio;
+  stopBtn.disabled = value || (!state.audio && !state.nativePlaying);
 }
 
 function releaseAudio() {
@@ -60,18 +61,22 @@ function releaseAudio() {
 
   downloadBtn.disabled = true;
   pauseBtn.disabled = state.busy;
-  stopBtn.disabled = state.busy;
+  stopBtn.disabled = state.busy || !state.nativePlaying;
 }
 
 function resetPlaybackControls() {
   pauseBtn.textContent = "⏸ حبّس مؤقت";
   pauseBtn.disabled = state.busy || !state.audio;
-  stopBtn.disabled = state.busy || !state.audio;
+  stopBtn.disabled = state.busy || (!state.audio && !state.nativePlaying);
   player.hidden = true;
 }
 
 function stopPlayback(message = "توقف الصوت") {
   releaseAudio();
+  if (state.nativePlaying && window.AndroidTts) {
+    window.AndroidTts.stop();
+    state.nativePlaying = false;
+  }
   resetPlaybackControls();
   setStatus(message);
   statusText.textContent = "Gemini TTS";
@@ -165,10 +170,43 @@ async function speak() {
 
   setBusy(true);
   releaseAudio();
+  if (state.nativePlaying && window.AndroidTts) {
+    window.AndroidTts.stop();
+    state.nativePlaying = false;
+  }
   setStatus("⏳ راهو يولّد الصوت...", "loading");
   statusText.textContent = "جاري التوليد";
 
   try {
+    if (window.AndroidTts && window.androidTtsReadyState === true) {
+      window.AndroidTts.speak(
+        text,
+        Number(rateInput.value),
+        Number(pitchInput.value),
+        Number(volumeInput.value)
+      );
+      state.generatedVoice = voiceSelect.value;
+      state.generatedText = text;
+      state.nativePlaying = true;
+      player.hidden = false;
+      playerTitle.textContent = `تشغيل Android · ${state.generatedVoice}`;
+      playerMeta.textContent = `${text.length} حرف · محرك Android`;
+      pauseBtn.disabled = true;
+      stopBtn.disabled = false;
+      downloadBtn.disabled = true;
+      setStatus("▶ راهو يتشغّل بمحرك Android", "ok");
+      statusText.textContent = `${state.generatedVoice} · Android TTS`;
+      saveHistory({
+        voice: state.generatedVoice,
+        text,
+        time: new Date().toLocaleTimeString("ar-DZ", {
+          hour: "2-digit",
+          minute: "2-digit"
+        })
+      });
+      return;
+    }
+
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -271,6 +309,10 @@ $("#clearBtn").addEventListener("click", () => {
 speakBtn.addEventListener("click", speak);
 
 pauseBtn.addEventListener("click", async () => {
+  if (state.nativePlaying) {
+    setStatus("محرك Android ما يدعمش الإيقاف المؤقت من الواجهة.", "");
+    return;
+  }
   if (!state.audio) return;
 
   if (state.audio.paused) {
@@ -303,6 +345,14 @@ document.querySelectorAll(".voice-card").forEach((card) => {
     $("#studio").scrollIntoView({ behavior: "smooth", block: "start" });
   });
 });
+
+window.androidTtsReady = (ready) => {
+  window.androidTtsReadyState = Boolean(ready);
+  if (ready) {
+    setStatus("✓ محرك Android TTS واجد", "ok");
+    statusText.textContent = "Android TTS واجد";
+  }
+};
 
 $("#clearHistory").addEventListener("click", () => {
   localStorage.removeItem(HISTORY_KEY);

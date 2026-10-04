@@ -3,6 +3,30 @@ import { GoogleGenAI } from "@google/genai";
 const VOICES = new Set(["Puck", "Kore", "Charon", "Fenrir", "Zephyr"]);
 const MODEL = "gemini-3.8-flash-tts";
 const MAX_TEXT = 5000;
+const MAX_REQUEST_BYTES = 50000;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 12;
+const requestBuckets = new Map();
+
+function getClientKey(req) {
+  const forwarded = String(req.headers?.["x-forwarded-for"] || "").split(",")[0].trim();
+  return forwarded || String(req.headers?.["x-real-ip"] || "unknown");
+}
+
+function rateLimit(req) {
+  const now = Date.now();
+  const key = getClientKey(req);
+  const current = requestBuckets.get(key);
+  if (!current || now - current.startedAt >= RATE_LIMIT_WINDOW_MS) {
+    requestBuckets.set(key, { startedAt: now, count: 1 });
+    return { allowed: true, retryAfter: 0 };
+  }
+  current.count += 1;
+  if (current.count > RATE_LIMIT_MAX) {
+    return { allowed: false, retryAfter: Math.ceil((RATE_LIMIT_WINDOW_MS - (now - current.startedAt)) / 1000) };
+  }
+  return { allowed: true, retryAfter: 0 };
+}
 
 function clampNumber(value, min, max, fallback) {
   const number = Number(value);
@@ -19,6 +43,19 @@ export default async function handler(req, res) {
   const contentType = String(req.headers?.["content-type"] || "").toLowerCase();
   if (!contentType.startsWith("application/json")) {
     res.status(415).json({ error: "صيغة الطلب غير مدعومة." });
+    return;
+  }
+
+  const rate = rateLimit(req);
+  if (!rate.allowed) {
+    res.setHeader("Retry-After", String(rate.retryAfter));
+    res.status(429).json({ error: "طلبات بزاف في وقت قصير. استنى شوية وعاود جرّب." });
+    return;
+  }
+
+  const contentLength = Number(req.headers?.["content-length"] || 0);
+  if (contentLength > MAX_REQUEST_BYTES) {
+    res.status(413).json({ error: "الطلب كبير بزاف." });
     return;
   }
 
