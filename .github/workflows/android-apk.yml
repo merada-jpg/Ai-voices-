@@ -13,6 +13,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_USE_ANDROIDX: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,8 +33,13 @@ jobs:
       - name: Verify Gradle
         run: gradle --version
 
+      - name: Verify AndroidX configuration
+        run: |
+          test "$(grep -E '^android\.useAndroidX=' gradle.properties | cut -d= -f2)" = "true"
+          test "$(grep -E '^android\.enableJetifier=' gradle.properties | cut -d= -f2)" = "true"
+
       - name: Build debug APK
-        run: gradle :app:assembleDebug --no-daemon
+        run: gradle -Pandroid.useAndroidX=true -Pandroid.enableJetifier=true :app:assembleDebug --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
