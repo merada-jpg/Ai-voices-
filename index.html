@@ -3,51 +3,74 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="AI Voices — حوّل النص تاعك لصوت بطريقة بسيطة وسريعة.">
-  <title>AI Voices — حوّل النص تاعك لصوت</title>
+  <meta name="description" content="AI Voices — توليد صوت بالذكاء الاصطناعي بالدارجة الجزائرية البيضاء.">
+  <title>AI Voices — Gemini TTS</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand"><span class="brand-mark">AI</span><span>AI Voices</span></div>
-    <span class="status"><i></i><span id="statusText">راه يخدم محليًا</span></span>
+    <span class="status"><i></i><span id="statusText">Gemini TTS</span></span>
   </header>
   <main class="shell">
     <section class="hero">
-      <p class="eyebrow">VOICE STUDIO</p>
-      <h1>حوّل النص تاعك لـ <span>صوت</span> في ثواني</h1>
-      <p class="sub">اكتب ولا لسّق النص، اختار الصوت والسرعة، ومن بعد شغّل الصوت مباشرة. هاذي النسخة ما تحتاجش API Key.</p>
+      <p class="eyebrow">GEMINI VOICE STUDIO</p>
+      <h1>حوّل النص تاعك لـ <span>صوت</span> بالذكاء الاصطناعي</h1>
+      <p class="sub">اكتب ولا لسّق النص بالدارجة الجزائرية البيضاء، اختار الصوت لي يعجبك، ومن بعد ولّد الصوت.</p>
     </section>
+
     <section class="studio">
       <div class="card editor">
         <div class="card-head">
           <div><span class="label">النص تاعك</span><span id="counter">0 / 5000</span></div>
           <button id="clearBtn" class="ghost" type="button">مسح</button>
         </div>
-        <textarea id="text" maxlength="5000" placeholder="اكتب ولا لسّق النص هنا...">سلام! مرحبا بيك في AI Voices. هاذي تجربة بسيطة باش تحوّل النص لصوت.</textarea>
+        <textarea id="text" maxlength="5000" placeholder="مثال: سلام عليكم يا خاوتي، واش راكم؟ مرحبا بيكم في AI Voices...">سلام عليكم يا خاوتي، واش راكم؟ مرحبا بيكم في AI Voices. هاذي تجربة صوت بالدارجة الجزائرية البيضاء.</textarea>
         <div class="actions">
-          <button id="speakBtn" class="primary" type="button">▶ شغّل الصوت</button>
+          <button id="speakBtn" class="primary" type="button">▶ ولّد الصوت</button>
           <button id="pauseBtn" class="secondary" type="button">⏸ حبّس مؤقت</button>
           <button id="stopBtn" class="secondary" type="button">■ وقّف</button>
+          <button id="downloadBtn" class="secondary" type="button" disabled>⬇ حمّل WAV</button>
         </div>
-        <p class="hint">نصيحة: جرّب نص قصير في البداية باش تسمع النتيجة بسرعة.</p>
+        <p id="hint" class="hint">الصوت يتولد عبر Gemini TTS. الـ API Key ما يخرجش للمتصفح.</p>
       </div>
+
       <aside class="card controls">
         <span class="label">إعدادات الصوت</span>
-        <label>اختار الصوت<select id="voice"></select></label>
-        <label>السرعة <output id="rateValue">1.0×</output><input id="rate" type="range" min="0.5" max="2" step="0.1" value="1"></label>
-        <label>نبرة الصوت <output id="pitchValue">1.0</output><input id="pitch" type="range" min="0" max="2" step="0.1" value="1"></label>
-        <label>مستوى الصوت <output id="volumeValue">100%</output><input id="volume" type="range" min="0" max="1" step="0.05" value="1"></label>
-        <div id="support" class="support"></div>
+
+        <label>اختار الصوت
+          <select id="voice">
+            <option value="Puck">Puck</option>
+            <option value="Kore">Kore</option>
+            <option value="Charon">Charon</option>
+            <option value="Fenrir">Fenrir</option>
+            <option value="Zephyr">Zephyr</option>
+          </select>
+        </label>
+
+        <label>السرعة <output id="rateValue">1.0×</output>
+          <input id="rate" type="range" min="0.75" max="1.5" step="0.05" value="1">
+        </label>
+
+        <label>نبرة الصوت <output id="pitchValue">1.0</output>
+          <input id="pitch" type="range" min="0.7" max="1.3" step="0.05" value="1">
+        </label>
+
+        <label>مستوى الصوت <output id="volumeValue">100%</output>
+          <input id="volume" type="range" min="0" max="1" step="0.05" value="1">
+        </label>
+
+        <div id="support" class="support">جاري تجهيز Gemini TTS...</div>
       </aside>
     </section>
+
     <section class="features">
-      <div><b>🎙️ أصوات متوفرة</b><span>نستعمل الأصوات لي راهي متوفرة في جهازك.</span></div>
-      <div><b>🇩🇿 العربية</b><span>إذا كان صوت عربي متوفر، نخليه يبان لك في الأول.</span></div>
-      <div><b>🔒 خصوصيتك</b><span>في هاذي النسخة، النص ما نبعثوهش لخادم خارجي.</span></div>
+      <div><b>🎙️ 5 أصوات</b><span>Puck · Kore · Charon · Fenrir · Zephyr</span></div>
+      <div><b>🇩🇿 الدارجة البيضاء</b><span>نوجهو النموذج لأسلوب جزائري طبيعي وواضح.</span></div>
+      <div><b>🔐 أمان</b><span>مفتاح Gemini يبقى في السيرفر وما يتعرضش في الواجهة.</span></div>
     </section>
   </main>
-  <footer>AI Voices · نسخة تجريبية · راهي قابلة للتطوير</footer>
+  <footer>AI Voices · Gemini TTS · نسخة ويب قيد التطوير</footer>
   <script src="app.js"></script>
 </body>
 </html>
