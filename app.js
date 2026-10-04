@@ -1,39 +1,320 @@
-const $=s=>document.querySelector(s);
-const t=$("#text"),v=$("#voice"),r=$("#rate"),p=$("#pitch"),vol=$("#volume"),c=$("#counter");
-const support=$("#support"),statusText=$("#statusText"),speakBtn=$("#speakBtn"),pauseBtn=$("#pauseBtn"),stopBtn=$("#stopBtn"),downloadBtn=$("#downloadBtn"),player=$("#player"),playerTitle=$("#playerTitle"),playerMeta=$("#playerMeta"),historyList=$("#historyList");
-let audio=null,audioUrl=null,busy=false;
+const $ = (selector) => document.querySelector(selector);
 
-function count(){c.textContent=t.value.length+" / 5000"}
-function setStatus(message,kind=""){support.textContent=message;support.className="support "+kind}
-function stopAudio(){if(audio){audio.pause();audio.currentTime=0;audio=null}if(audioUrl){URL.revokeObjectURL(audioUrl);audioUrl=null}downloadBtn.disabled=true}
-function saveHistory(item){const items=JSON.parse(localStorage.getItem("ai-voices-history")||"[]");items.unshift(item);localStorage.setItem("ai-voices-history",JSON.stringify(items.slice(0,8)));renderHistory()}
-function renderHistory(){const items=JSON.parse(localStorage.getItem("ai-voices-history")||"[]");if(!items.length){historyList.innerHTML='<div class="empty">مازال ما ولّدنا حتى صوت. أول تجربة راح تظهر هنا.</div>';return}historyList.innerHTML=items.map((x,i)=>'<button class="history-item" data-i="'+i+'"><span>🎙️</span><div><b>'+escapeHtml(x.voice)+'</b><small>'+escapeHtml(x.text.slice(0,80))+(x.text.length>80?"…":"")+'</small></div><em>'+escapeHtml(x.time)+'</em></button>').join("")}
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+const textInput = $("#text");
+const voiceSelect = $("#voice");
+const rateInput = $("#rate");
+const pitchInput = $("#pitch");
+const volumeInput = $("#volume");
+const counter = $("#counter");
+const support = $("#support");
+const statusText = $("#statusText");
+const speakBtn = $("#speakBtn");
+const pauseBtn = $("#pauseBtn");
+const stopBtn = $("#stopBtn");
+const downloadBtn = $("#downloadBtn");
+const player = $("#player");
+const playerTitle = $("#playerTitle");
+const playerMeta = $("#playerMeta");
+const historyList = $("#historyList");
 
-async function speak(){
- const text=t.value.trim(); if(!text){t.focus();return} if(busy)return;
- busy=true;speakBtn.disabled=true;setStatus("⏳ راهو يولّد الصوت...","loading");statusText.textContent="جاري التوليد";stopAudio();
- try{
-  const response=await fetch("/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text,voice:v.value,rate:+r.value,pitch:+p.value})});
-  if(!response.ok){let msg="صار مشكل في توليد الصوت";try{const d=await response.json();if(d.error)msg=d.error}catch{}throw new Error(msg)}
-  const blob=await response.blob();if(!blob.size)throw new Error("ما رجع حتى ملف صوتي");
-  audioUrl=URL.createObjectURL(blob);audio=new Audio(audioUrl);audio.volume=+vol.value;audio.playbackRate=+r.value;
-  player.hidden=false;playerTitle.textContent="آخر توليد · "+v.value;playerMeta.textContent=(text.length+" حرف")+" · WAV";
-  downloadBtn.disabled=false;downloadBtn.onclick=()=>{const a=document.createElement("a");a.href=audioUrl;a.download="ai-voices-"+v.value.toLowerCase()+".wav";a.click()};
-  audio.onended=()=>{setStatus("✓ الصوت واجد","ok");statusText.textContent="الصوت واجد";speakBtn.disabled=false;pauseBtn.textContent="⏸ حبّس مؤقت"};
-  audio.onerror=()=>{setStatus("تعذر تشغيل الملف الصوتي","bad");speakBtn.disabled=false};
-  await audio.play();setStatus("▶ راهو يتشغّل بـ "+v.value,"ok");statusText.textContent=v.value+" · Gemini TTS";
-  saveHistory({voice:v.value,text,time:new Date().toLocaleTimeString("ar-DZ",{hour:"2-digit",minute:"2-digit"})});
- }catch(error){setStatus("✕ "+(error.message||"تعذر توليد الصوت"),"bad");statusText.textContent="كاين مشكل"}
- finally{busy=false;speakBtn.disabled=false}
+const HISTORY_KEY = "ai-voices-history";
+const MAX_HISTORY = 8;
+const MAX_TEXT = 5000;
+
+let state = {
+  audio: null,
+  objectUrl: null,
+  busy: false,
+  generatedVoice: null,
+  generatedText: ""
+};
+
+function count() {
+  counter.textContent = `${textInput.value.length} / ${MAX_TEXT}`;
 }
-function update(){if(audio){audio.playbackRate=+r.value;audio.volume=+vol.value}}
-t.addEventListener("input",count);$("#clearBtn").onclick=()=>{stopAudio();t.value="";count();t.focus()};
-speakBtn.onclick=speak;pauseBtn.onclick=()=>{if(!audio)return;if(audio.paused){audio.play();pauseBtn.textContent="⏸ حبّس مؤقت"}else{audio.pause();pauseBtn.textContent="▶ كمّل"}};
-stopBtn.onclick=()=>{stopAudio();pauseBtn.textContent="⏸ حبّس مؤقت";setStatus("توقف الصوت","")};
-r.oninput=()=>{$("#rateValue").textContent=(+r.value).toFixed(2)+"×";update()};p.oninput=()=>$("#pitchValue").textContent=(+p.value).toFixed(2);vol.oninput=()=>{$("#volumeValue").textContent=Math.round(+vol.value*100)+"%";update()};
-v.onchange=()=>document.querySelectorAll(".voice-card").forEach(x=>x.classList.toggle("active",x.dataset.voice===v.value));
-document.querySelectorAll(".voice-card").forEach(x=>x.onclick=()=>{v.value=x.dataset.voice;v.dispatchEvent(new Event("change"));document.querySelector("#studio").scrollIntoView({behavior:"smooth",block:"start"})});
-$("#clearHistory").onclick=()=>{localStorage.removeItem("ai-voices-history");renderHistory()};
-t.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();speak()}});
-count();renderHistory();
+
+function setStatus(message, kind = "") {
+  support.textContent = message;
+  support.className = `support ${kind}`;
+}
+
+function setBusy(value) {
+  state.busy = value;
+  speakBtn.disabled = value;
+}
+
+function releaseAudio() {
+  if (state.audio) {
+    state.audio.pause();
+    state.audio.removeAttribute("src");
+    state.audio.load();
+    state.audio = null;
+  }
+
+  if (state.objectUrl) {
+    URL.revokeObjectURL(state.objectUrl);
+    state.objectUrl = null;
+  }
+
+  downloadBtn.disabled = true;
+}
+
+function resetPlaybackControls() {
+  pauseBtn.textContent = "⏸ حبّس مؤقت";
+  player.hidden = true;
+}
+
+function stopPlayback(message = "توقف الصوت") {
+  releaseAudio();
+  resetPlaybackControls();
+  setStatus(message);
+  statusText.textContent = "Gemini TTS";
+}
+
+function readHistory() {
+  try {
+    const items = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeHistory(items) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, MAX_HISTORY)));
+}
+
+function saveHistory(item) {
+  const items = readHistory();
+  items.unshift(item);
+  writeHistory(items);
+  renderHistory();
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (match) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#039;"
+  }[match]));
+}
+
+function renderHistory() {
+  const items = readHistory();
+
+  if (!items.length) {
+    historyList.innerHTML =
+      '<div class="empty">مازال ما ولّدنا حتى صوت. أول تجربة راح تظهر هنا.</div>';
+    return;
+  }
+
+  historyList.innerHTML = items.map((item, index) => `
+    <button class="history-item" type="button" data-index="${index}">
+      <span>🎙️</span>
+      <div>
+        <b>${escapeHtml(item.voice)}</b>
+        <small>${escapeHtml(item.text.slice(0, 80))}${item.text.length > 80 ? "…" : ""}</small>
+      </div>
+      <em>${escapeHtml(item.time)}</em>
+    </button>
+  `).join("");
+}
+
+function syncVoiceCards() {
+  document.querySelectorAll(".voice-card").forEach((card) => {
+    card.classList.toggle("active", card.dataset.voice === voiceSelect.value);
+  });
+}
+
+function syncAudioSettings() {
+  if (!state.audio) return;
+  state.audio.playbackRate = Number(rateInput.value);
+  state.audio.volume = Number(volumeInput.value);
+}
+
+function updateSettingsLabels() {
+  $("#rateValue").textContent = `${Number(rateInput.value).toFixed(2)}×`;
+  $("#pitchValue").textContent = Number(pitchInput.value).toFixed(2);
+  $("#volumeValue").textContent = `${Math.round(Number(volumeInput.value) * 100)}%`;
+  syncAudioSettings();
+}
+
+async function speak() {
+  const text = textInput.value.trim();
+
+  if (!text) {
+    textInput.focus();
+    setStatus("اكتب النص قبل ما تولّد الصوت.", "bad");
+    return;
+  }
+
+  if (state.busy) return;
+
+  setBusy(true);
+  releaseAudio();
+  setStatus("⏳ راهو يولّد الصوت...", "loading");
+  statusText.textContent = "جاري التوليد";
+
+  try {
+    const response = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        voice: voiceSelect.value,
+        pitch: Number(pitchInput.value)
+      })
+    });
+
+    if (!response.ok) {
+      let message = "صار مشكل في توليد الصوت";
+      try {
+        const data = await response.json();
+        if (data.error) message = data.error;
+      } catch {}
+      throw new Error(message);
+    }
+
+    const mimeType = response.headers.get("content-type") || "audio/wav";
+    const blob = await response.blob();
+
+    if (!blob.size) {
+      throw new Error("ما رجع حتى ملف صوتي");
+    }
+
+    state.objectUrl = URL.createObjectURL(
+      new Blob([blob], { type: mimeType })
+    );
+    state.audio = new Audio(state.objectUrl);
+    state.generatedVoice = voiceSelect.value;
+    state.generatedText = text;
+
+    syncAudioSettings();
+
+    player.hidden = false;
+    playerTitle.textContent = `آخر توليد · ${state.generatedVoice}`;
+    playerMeta.textContent = `${text.length} حرف · ${mimeType.split(";")[0].toUpperCase()}`;
+
+    downloadBtn.disabled = false;
+    downloadBtn.onclick = () => {
+      if (!state.objectUrl) return;
+      const link = document.createElement("a");
+      link.href = state.objectUrl;
+      link.download = `ai-voices-${state.generatedVoice.toLowerCase()}.${mimeType.includes("mpeg") ? "mp3" : "wav"}`;
+      link.click();
+    };
+
+    state.audio.onended = () => {
+      pauseBtn.textContent = "⏸ حبّس مؤقت";
+      setStatus("✓ الصوت واجد", "ok");
+      statusText.textContent = "الصوت واجد";
+    };
+
+    state.audio.onerror = () => {
+      setStatus("تعذر تشغيل الملف الصوتي", "bad");
+      statusText.textContent = "كاين مشكل";
+    };
+
+    await state.audio.play();
+
+    setStatus(`▶ راهو يتشغّل بـ ${state.generatedVoice}`, "ok");
+    statusText.textContent = `${state.generatedVoice} · Gemini TTS`;
+
+    saveHistory({
+      voice: state.generatedVoice,
+      text,
+      time: new Date().toLocaleTimeString("ar-DZ", {
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    });
+  } catch (error) {
+    releaseAudio();
+    resetPlaybackControls();
+    setStatus(`✕ ${error.message || "تعذر توليد الصوت"}`, "bad");
+    statusText.textContent = "كاين مشكل";
+  } finally {
+    setBusy(false);
+  }
+}
+
+textInput.addEventListener("input", count);
+
+$("#clearBtn").addEventListener("click", () => {
+  stopPlayback("النص تفرغ");
+  textInput.value = "";
+  count();
+  textInput.focus();
+});
+
+speakBtn.addEventListener("click", speak);
+
+pauseBtn.addEventListener("click", async () => {
+  if (!state.audio) return;
+
+  if (state.audio.paused) {
+    try {
+      await state.audio.play();
+      pauseBtn.textContent = "⏸ حبّس مؤقت";
+      setStatus("▶ راهو يتشغّل", "ok");
+    } catch {
+      setStatus("تعذر مواصلة التشغيل", "bad");
+    }
+  } else {
+    state.audio.pause();
+    pauseBtn.textContent = "▶ كمّل";
+    setStatus("⏸ الصوت محبوس مؤقتًا");
+  }
+});
+
+stopBtn.addEventListener("click", () => stopPlayback());
+
+rateInput.addEventListener("input", updateSettingsLabels);
+pitchInput.addEventListener("input", updateSettingsLabels);
+volumeInput.addEventListener("input", updateSettingsLabels);
+
+voiceSelect.addEventListener("change", syncVoiceCards);
+
+document.querySelectorAll(".voice-card").forEach((card) => {
+  card.addEventListener("click", () => {
+    voiceSelect.value = card.dataset.voice;
+    syncVoiceCards();
+    $("#studio").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+$("#clearHistory").addEventListener("click", () => {
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory();
+});
+
+historyList.addEventListener("click", (event) => {
+  const item = event.target.closest(".history-item");
+  if (!item) return;
+
+  const record = readHistory()[Number(item.dataset.index)];
+  if (!record) return;
+
+  textInput.value = record.text;
+  voiceSelect.value = record.voice;
+  syncVoiceCards();
+  count();
+  $("#studio").scrollIntoView({ behavior: "smooth", block: "start" });
+  setStatus("رجّعت النص من السجل. اضغط «ولّد الصوت» باش تعاود التوليد.", "ok");
+});
+
+textInput.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+    event.preventDefault();
+    speak();
+  }
+});
+
+window.addEventListener("beforeunload", releaseAudio);
+
+count();
+updateSettingsLabels();
+syncVoiceCards();
+renderHistory();
