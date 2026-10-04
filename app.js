@@ -337,3 +337,4 @@ count();
 updateSettingsLabels();
 syncVoiceCards();
 renderHistory();
+resetPlaybackControls();
