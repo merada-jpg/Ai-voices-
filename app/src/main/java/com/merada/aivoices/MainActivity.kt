@@ -7,21 +7,22 @@ import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
+    private lateinit var webView: WebView
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val webView = WebView(this).apply {
+        webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
             webViewClient = WebViewClient()
-            loadUrl("https://merada-jpg.github.io/Ai-voices-/")
+            loadUrl("file:///android_asset/index.html")
         }
         setContentView(webView)
     }
 
     override fun onBackPressed() {
-        val webView = (window.decorView.rootView as? android.view.ViewGroup)?.findViewWithTag<WebView>("")
-        if (webView?.canGoBack() == true) webView.goBack() else super.onBackPressed()
+        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 }
