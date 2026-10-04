@@ -23,7 +23,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
             addJavascriptInterface(AndroidTtsBridge(), "AndroidTts")
-            webViewClient = WebViewClient()
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    notifyWebReady()
+                }
+            }
             loadUrl("file:///android_asset/index.html")
         }
         setContentView(webView)
@@ -36,8 +40,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             tts.setSpeechRate(1.0f)
             tts.setPitch(1.0f)
         }
-        webView.post {
-            webView.evaluateJavascript("window.androidTtsReady && window.androidTtsReady($ready);", null)
+        notifyWebReady()
+    }
+
+    private fun notifyWebReady() {
+        if (::webView.isInitialized) {
+            webView.post {
+                webView.evaluateJavascript("window.androidTtsReady && window.androidTtsReady($ready);", null)
+            }
         }
     }
 
