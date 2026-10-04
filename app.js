@@ -41,6 +41,8 @@ function setStatus(message, kind = "") {
 function setBusy(value) {
   state.busy = value;
   speakBtn.disabled = value;
+  pauseBtn.disabled = value || !state.audio;
+  stopBtn.disabled = value || !state.audio;
 }
 
 function releaseAudio() {
@@ -57,10 +59,14 @@ function releaseAudio() {
   }
 
   downloadBtn.disabled = true;
+  pauseBtn.disabled = state.busy;
+  stopBtn.disabled = state.busy;
 }
 
 function resetPlaybackControls() {
   pauseBtn.textContent = "⏸ حبّس مؤقت";
+  pauseBtn.disabled = state.busy || !state.audio;
+  stopBtn.disabled = state.busy || !state.audio;
   player.hidden = true;
 }
 
@@ -182,7 +188,7 @@ async function speak() {
       throw new Error(message);
     }
 
-    const mimeType = response.headers.get("content-type") || "audio/wav";
+    const mimeType = (response.headers.get("content-type") || "audio/wav").split(";")[0].trim();
     const blob = await response.blob();
 
     if (!blob.size) {
@@ -193,6 +199,8 @@ async function speak() {
       new Blob([blob], { type: mimeType })
     );
     state.audio = new Audio(state.objectUrl);
+    pauseBtn.disabled = false;
+    stopBtn.disabled = false;
     state.generatedVoice = voiceSelect.value;
     state.generatedText = text;
 
@@ -207,7 +215,11 @@ async function speak() {
       if (!state.objectUrl) return;
       const link = document.createElement("a");
       link.href = state.objectUrl;
-      link.download = `ai-voices-${state.generatedVoice.toLowerCase()}.${mimeType.includes("mpeg") ? "mp3" : "wav"}`;
+      const extension = mimeType.includes("mpeg") ? "mp3"
+        : mimeType.includes("ogg") ? "ogg"
+        : mimeType.includes("webm") ? "webm"
+        : "wav";
+      link.download = `ai-voices-${state.generatedVoice.toLowerCase()}.${extension}`;
       link.click();
     };
 
